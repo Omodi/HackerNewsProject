@@ -66,7 +66,7 @@ jobs:
       - name: Health Check
         run: |
           Start-Sleep -Seconds 30
-          $response = Invoke-WebRequest -Uri "https://hackernewsapigreen.azurewebsites.net/health" -UseBasicParsing
+          $response = Invoke-WebRequest -Uri "https://hackernewsapigreen-djgchbfwf6ead2hf.canadacentral-01.azurewebsites.net/api/health" -UseBasicParsing
           if ($response.StatusCode -eq 200) {
             Write-Host "✅ Health check passed!"
           } else {
