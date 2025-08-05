@@ -1,6 +1,7 @@
 using HackerNewsApi.Core.Interfaces;
 using HackerNewsApi.Core.Models;
 using HackerNewsApi.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -52,7 +53,7 @@ public class StoryIndexingService : BackgroundService
             var context = scope.ServiceProvider.GetRequiredService<SearchDbContext>();
             
             // Ensure database is created and migrations are applied
-            await context.Database.EnsureCreatedAsync();
+            await context.Database.MigrateAsync();
             
             var totalStories = await context.GetTotalStoriesCountAsync();
             
