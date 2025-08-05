@@ -17,7 +17,6 @@ namespace HackerNewsApi.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
-#pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.7");
 
             modelBuilder.Entity("HackerNewsApi.Infrastructure.Data.StoryEntity", b =>
@@ -76,7 +75,6 @@ namespace HackerNewsApi.Infrastructure.Migrations
 
                     b.ToTable("Stories");
                 });
-#pragma warning restore 612, 618
         }
     }
 }

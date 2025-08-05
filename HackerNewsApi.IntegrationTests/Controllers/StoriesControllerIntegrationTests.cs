@@ -1,5 +1,6 @@
 using FluentAssertions;
 using HackerNewsApi.Core.Models;
+using HackerNewsApi.IntegrationTests.Helpers;
 using Microsoft.AspNetCore.Mvc.Testing;
 using System.Net;
 using System.Net.Http.Json;
@@ -7,12 +8,12 @@ using System.Text.Json;
 
 namespace HackerNewsApi.IntegrationTests.Controllers;
 
-public class StoriesControllerIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
+public class StoriesControllerIntegrationTests : IClassFixture<TestWebApplicationFactory<Program>>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly TestWebApplicationFactory<Program> _factory;
     private readonly HttpClient _client;
 
-    public StoriesControllerIntegrationTests(WebApplicationFactory<Program> factory)
+    public StoriesControllerIntegrationTests(TestWebApplicationFactory<Program> factory)
     {
         _factory = factory;
         _client = _factory.CreateClient();

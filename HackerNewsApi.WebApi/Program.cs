@@ -60,23 +60,27 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
+// Automatically run migrations - skip during testing
+if (!app.Environment.IsEnvironment("Testing"))
 {
-    var context = scope.ServiceProvider.GetRequiredService<SearchDbContext>();
-    try
+    using (var scope = app.Services.CreateScope())
     {
-        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-        logger.LogInformation("Starting database migration...");
-        
-        context.Database.Migrate();
-        
-        logger.LogInformation("Database migration completed successfully.");
-    }
-    catch (Exception ex)
-    {
-        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "An error occurred while migrating the database.");
-        throw; // Re-throw to prevent startup if migration fails
+        var context = scope.ServiceProvider.GetRequiredService<SearchDbContext>();
+        try
+        {
+            var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+            logger.LogInformation("Starting database migration...");
+            
+            context.Database.Migrate();
+            
+            logger.LogInformation("Database migration completed successfully.");
+        }
+        catch (Exception ex)
+        {
+            var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+            logger.LogError(ex, "An error occurred while migrating the database.");
+            throw; // Re-throw to prevent startup if migration fails
+        }
     }
 }
 
