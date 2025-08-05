@@ -36,8 +36,8 @@ describe('HackerNewsService', () => {
             id: 1,
             title: 'Test Story',
             by: 'testuser',
-            time: new Date('2023-01-01T00:00:00Z'),
-            createdAt: new Date('2023-01-01T00:00:00Z'),
+            time: 1672531200, // Unix timestamp for 2023-01-01T00:00:00Z
+            createdAt: '2023-01-01T00:00:00Z',
             score: 100,
             url: 'https://example.com',
             type: 'story',
@@ -87,7 +87,7 @@ describe('HackerNewsService', () => {
       req.flush(mockResponse);
     });
 
-    it('should convert API response dates to Date objects', () => {
+    it('should return API response with correct data types', () => {
       const mockApiResponse = {
         items: [
           {
@@ -95,7 +95,7 @@ describe('HackerNewsService', () => {
             title: 'Test Story',
             by: 'testuser',
             time: 1672531200,
-            createdAt: '2022-01-01T00:00:00Z',
+            createdAt: '2023-01-01T00:00:00Z',
             score: 100,
             url: 'https://example.com',
             type: 'story',
@@ -111,10 +111,10 @@ describe('HackerNewsService', () => {
 
       service.getStories().subscribe(result => {
         const story = result.items[0];
-        expect(story.time).toBeInstanceOf(Date);
-        expect(story.createdAt).toBeInstanceOf(Date);
-        expect(story.time.getFullYear()).toBe(2022);
-        expect(story.createdAt.getFullYear()).toBe(2021);
+        expect(typeof story.time).toBe('number');
+        expect(typeof story.createdAt).toBe('string');
+        expect(story.time).toBe(1672531200);
+        expect(story.createdAt).toBe('2023-01-01T00:00:00Z');
       });
 
       const req = httpMock.expectOne(`${baseUrl}/stories?page=1&pageSize=20`);
@@ -123,7 +123,7 @@ describe('HackerNewsService', () => {
   });
 
 
-  describe('convertStoryDates (private method testing through public methods)', () => {
+  describe('normalizeStory (private method testing through public methods)', () => {
     it('should handle stories without URLs', () => {
       const mockApiResponse = {
         items: [
@@ -204,8 +204,8 @@ describe('HackerNewsService', () => {
             id: 1,
             title: 'Enhanced Search Result',
             by: 'testuser',
-            time: new Date(),
-            createdAt: new Date(),
+            time: Date.now() / 1000, // Unix timestamp
+            createdAt: new Date().toISOString(),
             score: 100,
             type: 'story',
             hasUrl: true,
@@ -295,8 +295,8 @@ describe('HackerNewsService', () => {
 
   describe('searchStories - advanced filter scenarios', () => {
     it('should handle search with date filters', () => {
-      const fromDate = new Date('2023-01-01');
-      const toDate = new Date('2023-12-31');
+      const fromDate = '2023-01-01T00:00:00.000Z';
+      const toDate = '2023-12-31T23:59:59.999Z';
       const searchQuery = {
         query: 'javascript',
         page: 1,
@@ -325,8 +325,8 @@ describe('HackerNewsService', () => {
 
       const req = httpMock.expectOne((request) => {
         return request.url.includes('/search') &&
-               request.params.get('fromDate') === fromDate.toISOString() &&
-               request.params.get('toDate') === toDate.toISOString() &&
+               request.params.get('fromDate') === fromDate &&
+               request.params.get('toDate') === toDate &&
                request.params.get('minScore') === '50';
       });
       expect(req.request.method).toBe('GET');
@@ -433,7 +433,7 @@ describe('HackerNewsService', () => {
     });
   });
 
-  describe('convertStoryDates - edge cases and fallbacks', () => {
+  describe('normalizeStory - edge cases and fallbacks', () => {
     it('should handle story with missing commentCount and descendants', () => {
       const apiStory = {
         id: 1,

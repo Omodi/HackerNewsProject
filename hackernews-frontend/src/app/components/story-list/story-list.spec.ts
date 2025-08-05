@@ -25,8 +25,8 @@ describe('StoryList', () => {
       id: 1,
       title: 'Test Story 1',
       by: 'user1',
-      time: new Date('2023-01-01T10:00:00Z'),
-      createdAt: new Date('2023-01-01T10:00:00Z'),
+      time: 1672574400, // Unix timestamp for 2023-01-01T10:00:00Z
+      createdAt: '2023-01-01T10:00:00Z',
       score: 100,
       url: 'https://example.com/story1',
       type: 'story',
@@ -40,8 +40,8 @@ describe('StoryList', () => {
       id: 2,
       title: 'Test Story 2',
       by: 'user2',
-      time: new Date('2023-01-01T11:00:00Z'),
-      createdAt: new Date('2023-01-01T11:00:00Z'),
+      time: 1672578000, // Unix timestamp for 2023-01-01T11:00:00Z
+      createdAt: '2023-01-01T11:00:00Z',
       score: 50,
       type: 'story',
       hasUrl: false,
@@ -335,7 +335,7 @@ describe('StoryList', () => {
 
     it('should clear all filters', () => {
       component.filtersForm.patchValue({
-        fromDate: new Date(),
+        fromDate: '2023-01-01',
         author: 'test',
         minScore: 50
       });
@@ -374,8 +374,8 @@ describe('StoryList', () => {
 
     it('should detect active filters with all filter types', () => {
       component.filtersForm.patchValue({
-        fromDate: new Date(),
-        toDate: new Date(),
+        fromDate: '2023-01-01',
+        toDate: '2023-12-31',
         minScore: 10,
         maxScore: 100,
         author: 'testuser',
@@ -387,8 +387,8 @@ describe('StoryList', () => {
     });
 
     it('should build filters object correctly', () => {
-      const fromDate = new Date('2023-01-01');
-      const toDate = new Date('2023-12-31');
+      const fromDate = '2023-01-01';
+      const toDate = '2023-12-31';
       
       component.filtersForm.patchValue({
         fromDate,

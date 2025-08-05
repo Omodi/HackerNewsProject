@@ -21,7 +21,7 @@ export class HackerNewsService {
       .pipe(
         map(response => ({
           ...response,
-          items: response.items.map(story => this.convertStoryDates(story))
+          items: response.items.map(story => this.normalizeStory(story))
         }))
       );
   }
@@ -37,10 +37,10 @@ export class HackerNewsService {
       const filters = searchQuery.filters;
       
       if (filters.fromDate) {
-        params = params.set('fromDate', filters.fromDate.toISOString());
+        params = params.set('fromDate', filters.fromDate);
       }
       if (filters.toDate) {
-        params = params.set('toDate', filters.toDate.toISOString());
+        params = params.set('toDate', filters.toDate);
       }
       if (filters.minScore !== undefined) {
         params = params.set('minScore', filters.minScore.toString());
@@ -63,7 +63,7 @@ export class HackerNewsService {
       .pipe(
         map(response => ({
           ...response,
-          items: response.items.map(story => this.convertStoryDates(story))
+          items: response.items.map(story => this.normalizeStory(story))
         }))
       );
   }
@@ -76,13 +76,12 @@ export class HackerNewsService {
     return this.http.get<string[]>(`${this.baseUrl}/search/suggestions`, { params });
   }
 
-  private convertStoryDates(apiStory: any): Story {
+  private normalizeStory(apiStory: any): Story {
     return {
       ...apiStory,
-      time: new Date(apiStory.time * 1000),
-      createdAt: new Date(apiStory.createdAt),
       commentCount: apiStory.commentCount || apiStory.descendants || 0,
       hackerNewsUrl: apiStory.hackerNewsUrl || `https://news.ycombinator.com/item?id=${apiStory.id}`
     };
   }
+
 }

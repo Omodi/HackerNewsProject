@@ -2,22 +2,6 @@ export interface Story {
   id: number;
   title: string;
   by: string;
-  time: Date;
-  createdAt: Date;
-  score: number;
-  url?: string;
-  type: string;
-  hasUrl: boolean;
-  kids?: number[];
-  descendants?: number;
-  commentCount: number;
-  hackerNewsUrl: string;
-}
-
-export interface StoryApiResponse {
-  id: number;
-  title: string;
-  by: string;
   time: number;
   createdAt: string;
   score: number;
@@ -51,8 +35,8 @@ export enum SearchSortOrder {
 }
 
 export interface SearchFilters {
-  fromDate?: Date;
-  toDate?: Date;
+  fromDate?: string;
+  toDate?: string;
   minScore?: number;
   maxScore?: number;
   author?: string;

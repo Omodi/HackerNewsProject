@@ -219,9 +219,18 @@ export class StoryList implements OnInit {
     }
   }
 
-  formatTimeAgo(date: Date | string): string {
+  formatTimeAgo(date: Date | string | number): string {
     const now = new Date();
-    const targetDate = typeof date === 'string' ? new Date(date) : date;
+    let targetDate: Date;
+    
+    if (typeof date === 'number') {
+      // Unix timestamp (in seconds), convert to milliseconds
+      targetDate = new Date(date * 1000);
+    } else if (typeof date === 'string') {
+      targetDate = new Date(date);
+    } else {
+      targetDate = date;
+    }
     
     // Handle invalid dates
     if (isNaN(targetDate.getTime())) {
