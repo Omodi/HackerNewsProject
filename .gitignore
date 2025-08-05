@@ -12,6 +12,13 @@ out/
 TestResults/
 *.trx
 
+# Code coverage reports
+coverage_report/
+coverage/
+**/coverage/
+*.cobertura.xml
+lcov.info
+
 # Environment files
 appsettings.Development.json
 appsettings.Local.json
