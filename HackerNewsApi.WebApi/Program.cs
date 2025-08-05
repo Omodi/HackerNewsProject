@@ -37,16 +37,24 @@ builder.Services.AddHttpClient<IHackerNewsApiClient, HackerNewsApiClient>()
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAngular", policy =>
+    
+    options.AddPolicy("AllowAzure", policy =>
     {
-        policy.WithOrigins(
-                "http://localhost:4200",
-                "https://localhost:4200",
-                "http://localhost:4201",
-                "https://localhost:4201")
-              .AllowAnyMethod()
-              .AllowAnyHeader()
-              .AllowCredentials();
+        policy.SetIsOriginAllowed(origin =>
+        {
+            // Allow localhost for development
+            if (origin.StartsWith("http://localhost") || origin.StartsWith("https://localhost"))
+                return true;
+            
+            // Allow Azure Static Web Apps domains
+            if (origin.EndsWith(".azurestaticapps.net"))
+                return true;
+                
+            return false;
+        })
+        .AllowAnyMethod()
+        .AllowAnyHeader()
+        .AllowCredentials();
     });
 });
 
@@ -59,7 +67,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseCors("AllowAngular");
+app.UseCors("AllowAzure");
 app.UseAuthorization();
 app.MapControllers();
 
