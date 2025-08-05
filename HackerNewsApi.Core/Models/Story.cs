@@ -25,9 +25,20 @@ public class Story
     [JsonPropertyName("type")]
     public string Type { get; set; } = "story";
 
+    [JsonPropertyName("kids")]
+    public int[]? Kids { get; set; }
+
+    [JsonPropertyName("descendants")]
+    public int? Descendants { get; set; }
+
     /// Computed property for human-readable creation date
     public DateTime CreatedAt => DateTimeOffset.FromUnixTimeSeconds(Time).DateTime;
 
-    /// Whether this story has a URL (vs being a text post)
     public bool HasUrl => !string.IsNullOrEmpty(Url);
+
+    /// Number of comments on this story
+    public int CommentCount => Descendants ?? 0;
+
+    /// HackerNews URL for viewing comments
+    public string HackerNewsUrl => $"https://news.ycombinator.com/item?id={Id}";
 }

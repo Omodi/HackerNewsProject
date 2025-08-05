@@ -1,35 +1,49 @@
 using HackerNewsApi.Core.Interfaces;
 using HackerNewsApi.Infrastructure.Services;
+using HackerNewsApi.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
 using Polly;
 using Polly.Extensions.Http;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Add memory cache
-builder.Services.AddMemoryCache();
+builder.Services.AddMemoryCache(options =>
+{
+    options.SizeLimit = 1000;
+    options.CompactionPercentage = 0.25;
+    options.ExpirationScanFrequency = TimeSpan.FromMinutes(5);
+});
 
-// Add Application Insights
 builder.Services.AddApplicationInsightsTelemetry();
 
-// Register our services
+builder.Services.AddDbContext<SearchDbContext>(options =>
+    options.UseSqlite("Data Source=search.db"));
+
 builder.Services.AddScoped<ICacheService, CacheService>();
 builder.Services.AddScoped<IHackerNewsService, HackerNewsService>();
+builder.Services.AddScoped<ISearchRepository, SearchRepository>();
 
-// Configure HttpClient with Polly for resilience
+// Register DatabaseMaintenanceService as singleton for health monitoring
+builder.Services.AddSingleton<HackerNewsApi.Infrastructure.Services.DatabaseMaintenanceService>();
+builder.Services.AddHostedService<HackerNewsApi.Infrastructure.Services.StoryIndexingService>();
+builder.Services.AddHostedService(provider => provider.GetRequiredService<HackerNewsApi.Infrastructure.Services.DatabaseMaintenanceService>());
+
 builder.Services.AddHttpClient<IHackerNewsApiClient, HackerNewsApiClient>()
     .AddPolicyHandler(GetRetryPolicy());
 
-// Add CORS for Angular frontend
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAngular", policy =>
     {
-        policy.WithOrigins("http://localhost:4200", "https://localhost:4200")
+        policy.WithOrigins(
+                "http://localhost:4200",
+                "https://localhost:4200",
+                "http://localhost:4201",
+                "https://localhost:4201")
               .AllowAnyMethod()
               .AllowAnyHeader()
               .AllowCredentials();
@@ -38,7 +52,6 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -61,5 +74,4 @@ static IAsyncPolicy<HttpResponseMessage> GetRetryPolicy()
             sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
 }
 
-// Make Program class accessible for integration tests
 public partial class Program { }

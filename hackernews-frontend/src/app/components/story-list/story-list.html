@@ -1,0 +1,349 @@
+<div class="story-list-container">
+  <!-- Material Toolbar Header -->
+  <mat-toolbar color="primary" class="header-toolbar">
+    <mat-icon>newspaper</mat-icon>
+    <span class="header-title">HackerNews Stories</span>
+    <span class="header-subtitle">Latest stories from the HackerNews community</span>
+  </mat-toolbar>
+
+  <!-- Material Search Section -->
+  <div class="search-section">
+    <mat-card class="search-card">
+      <mat-card-content>
+        <div class="search-container">
+          <div class="search-input-row">
+            <mat-form-field appearance="outline" class="search-field">
+              <mat-label>Search stories by title</mat-label>
+              <input
+                matInput
+                type="text"
+                [value]="searchQuery()"
+                (input)="onSearchInput($event)"
+                (keyup.enter)="onSearch(searchQuery())"
+                [matAutocomplete]="searchAutocomplete"
+                placeholder="Enter search terms..."
+                autocomplete="off">
+              <mat-icon matSuffix>search</mat-icon>
+              
+              <!-- Material Autocomplete with better positioning -->
+              <mat-autocomplete
+                #searchAutocomplete="matAutocomplete"
+                class="search-autocomplete"
+                [displayWith]="displaySuggestion"
+                (optionSelected)="onSuggestionSelected($event)">
+                
+                <!-- Loading state -->
+                <mat-option *ngIf="loadingSuggestions() && searchQuery().length >= 2" disabled>
+                  <div class="suggestion-loading">
+                    <mat-spinner diameter="20"></mat-spinner>
+                    <span>Loading suggestions...</span>
+                  </div>
+                </mat-option>
+                
+                <!-- Suggestions -->
+                <mat-option
+                  *ngFor="let suggestion of suggestions()"
+                  [value]="suggestion"
+                  class="suggestion-option">
+                  <div class="suggestion-content">
+                    <mat-icon class="suggestion-icon">search</mat-icon>
+                    <span class="suggestion-text">{{ suggestion }}</span>
+                  </div>
+                </mat-option>
+                
+                <!-- No results state -->
+                <mat-option *ngIf="!loadingSuggestions() && suggestions().length === 0 && searchQuery().length >= 2" disabled>
+                  <div class="no-suggestions">
+                    <mat-icon>info</mat-icon>
+                    <span>No suggestions found</span>
+                  </div>
+                </mat-option>
+                
+              </mat-autocomplete>
+            </mat-form-field>
+            
+            <div class="search-actions">
+              <button
+                mat-raised-button
+                color="primary"
+                (click)="onSearch(searchQuery())"
+                [disabled]="loading()">
+                <mat-icon>search</mat-icon>
+                Search
+              </button>
+              <button
+                mat-stroked-button
+                (click)="toggleFilters()"
+                [color]="getActiveFiltersCount() > 0 ? 'accent' : 'basic'"
+                matTooltip="Advanced search filters">
+                <mat-icon>tune</mat-icon>
+                Filters
+                <mat-chip *ngIf="getActiveFiltersCount() > 0" class="filter-badge">
+                  {{ getActiveFiltersCount() }}
+                </mat-chip>
+              </button>
+              <button
+                *ngIf="isSearchMode()"
+                mat-stroked-button
+                (click)="clearSearch()">
+                <mat-icon>clear</mat-icon>
+                Clear
+              </button>
+            </div>
+          </div>
+          
+          <!-- Advanced Search Filters -->
+          <mat-expansion-panel
+            [expanded]="filtersExpanded()"
+            (expandedChange)="filtersExpanded.set($event)"
+            class="filters-panel">
+            <mat-expansion-panel-header>
+              <mat-panel-title>
+                <mat-icon>filter_list</mat-icon>
+                Advanced Search Filters
+              </mat-panel-title>
+              <mat-panel-description *ngIf="getActiveFiltersCount() > 0">
+                {{ getActiveFiltersCount() }} active filter{{ getActiveFiltersCount() !== 1 ? 's' : '' }}
+              </mat-panel-description>
+            </mat-expansion-panel-header>
+
+            <form [formGroup]="filtersForm" class="filters-form">
+              <div class="filters-grid">
+                <!-- Date Range Filters -->
+                <div class="filter-group">
+                  <h4 class="filter-group-title">
+                    <mat-icon>date_range</mat-icon>
+                    Date Range
+                  </h4>
+                  <div class="date-range-row">
+                    <mat-form-field appearance="outline" class="date-field">
+                      <mat-label>From Date</mat-label>
+                      <input matInput [matDatepicker]="fromDatePicker" formControlName="fromDate">
+                      <mat-datepicker-toggle matIconSuffix [for]="fromDatePicker"></mat-datepicker-toggle>
+                      <mat-datepicker #fromDatePicker></mat-datepicker>
+                    </mat-form-field>
+                    
+                    <mat-form-field appearance="outline" class="date-field">
+                      <mat-label>To Date</mat-label>
+                      <input matInput [matDatepicker]="toDatePicker" formControlName="toDate">
+                      <mat-datepicker-toggle matIconSuffix [for]="toDatePicker"></mat-datepicker-toggle>
+                      <mat-datepicker #toDatePicker></mat-datepicker>
+                    </mat-form-field>
+                  </div>
+                </div>
+
+                <!-- Score Range Filters -->
+                <div class="filter-group">
+                  <h4 class="filter-group-title">
+                    <mat-icon>trending_up</mat-icon>
+                    Score Range
+                  </h4>
+                  <div class="score-range-row">
+                    <mat-form-field appearance="outline" class="score-field">
+                      <mat-label>Min Score</mat-label>
+                      <input matInput type="number" min="0" formControlName="minScore" placeholder="0">
+                      <mat-icon matSuffix>thumb_up</mat-icon>
+                    </mat-form-field>
+                    
+                    <mat-form-field appearance="outline" class="score-field">
+                      <mat-label>Max Score</mat-label>
+                      <input matInput type="number" min="0" formControlName="maxScore" placeholder="1000">
+                      <mat-icon matSuffix>thumb_up</mat-icon>
+                    </mat-form-field>
+                  </div>
+                </div>
+
+                <!-- Author and Domain Filters -->
+                <div class="filter-group">
+                  <h4 class="filter-group-title">
+                    <mat-icon>person</mat-icon>
+                    Author & Source
+                  </h4>
+                  <div class="author-domain-row">
+                    <mat-form-field appearance="outline" class="author-field">
+                      <mat-label>Author</mat-label>
+                      <input matInput formControlName="author" placeholder="e.g. pg, sama">
+                      <mat-icon matSuffix>person</mat-icon>
+                    </mat-form-field>
+                    
+                    <mat-form-field appearance="outline" class="domain-field">
+                      <mat-label>Domain</mat-label>
+                      <input matInput formControlName="domain" placeholder="e.g. github.com, medium.com">
+                      <mat-icon matSuffix>language</mat-icon>
+                    </mat-form-field>
+                  </div>
+                </div>
+
+                <!-- Sort and Options -->
+                <div class="filter-group">
+                  <h4 class="filter-group-title">
+                    <mat-icon>sort</mat-icon>
+                    Sort & Options
+                  </h4>
+                  <div class="sort-options-row">
+                    <mat-form-field appearance="outline" class="sort-field">
+                      <mat-label>Sort By</mat-label>
+                      <mat-select formControlName="sortBy">
+                        <mat-option *ngFor="let option of sortOptions" [value]="option.value">
+                          {{ option.label }}
+                        </mat-option>
+                      </mat-select>
+                      <mat-icon matSuffix>sort</mat-icon>
+                    </mat-form-field>
+                    
+                    <div class="checkbox-group">
+                      <mat-checkbox formControlName="hasUrl" class="url-checkbox">
+                        Only stories with URLs
+                      </mat-checkbox>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Filter Actions -->
+              <div class="filter-actions">
+                <button
+                  mat-raised-button
+                  color="primary"
+                  (click)="onFiltersChanged()"
+                  type="button">
+                  <mat-icon>search</mat-icon>
+                  Apply Filters
+                </button>
+                <button
+                  mat-stroked-button
+                  (click)="clearAllFilters()"
+                  type="button"
+                  [disabled]="getActiveFiltersCount() === 0">
+                  <mat-icon>clear_all</mat-icon>
+                  Clear All Filters
+                </button>
+              </div>
+            </form>
+          </mat-expansion-panel>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Material Loading State -->
+  <div *ngIf="loading()" class="loading-section">
+    <mat-card class="loading-card">
+      <mat-card-content class="loading-content">
+        <mat-spinner diameter="60"></mat-spinner>
+        <p class="loading-text">Loading stories...</p>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Material Error State -->
+  <div *ngIf="error()" class="error-section">
+    <mat-card class="error-card">
+      <mat-card-content>
+        <div class="error-content">
+          <mat-icon color="warn" class="error-icon">error</mat-icon>
+          <p class="error-message">{{ error() }}</p>
+          <button
+            mat-raised-button
+            color="primary"
+            (click)="loadStories(currentPage())"
+            class="retry-btn">
+            <mat-icon>refresh</mat-icon>
+            Try Again
+          </button>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Material Story Cards -->
+  <div *ngIf="!loading() && !error() && stories().length > 0" class="stories-grid">
+    <mat-card *ngFor="let story of stories(); let i = index" class="story-card" appearance="outlined">
+      <mat-card-header>
+        <mat-card-title class="story-title">
+          <a *ngIf="story.hasUrl"
+             [href]="story.url"
+             target="_blank"
+             rel="noopener"
+             class="story-link">
+            {{ story.title }}
+            <mat-icon class="external-link-icon">open_in_new</mat-icon>
+          </a>
+          <a *ngIf="!story.hasUrl"
+             [href]="story.hackerNewsUrl"
+             target="_blank"
+             rel="noopener"
+             class="story-link">
+            {{ story.title }}
+            <mat-icon class="external-link-icon">comment</mat-icon>
+          </a>
+        </mat-card-title>
+        <mat-card-subtitle *ngIf="story.url" class="domain">
+          <mat-icon>language</mat-icon>
+          {{ getDomainFromUrl(story.url) }}
+        </mat-card-subtitle>
+      </mat-card-header>
+      
+      <mat-card-content>
+        <div class="story-meta">
+          <!-- Author on its own line -->
+          <mat-chip-set class="meta-chips author-row">
+            <mat-chip>
+              <mat-icon matChipAvatar>person</mat-icon>
+              {{ story.by }}
+            </mat-chip>
+          </mat-chip-set>
+          
+          <!-- Points and time together -->
+          <mat-chip-set class="meta-chips stats-row">
+            <mat-chip>
+              <mat-icon matChipAvatar>thumb_up</mat-icon>
+              {{ story.score }} points
+            </mat-chip>
+            <mat-chip>
+              <mat-icon matChipAvatar>schedule</mat-icon>
+              {{ formatTimeAgo(story.time) }}
+            </mat-chip>
+          </mat-chip-set>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Material Empty State -->
+  <div *ngIf="!loading() && !error() && stories().length === 0" class="empty-section">
+    <mat-card class="empty-card">
+      <mat-card-content class="empty-content">
+        <mat-icon class="empty-icon">inbox</mat-icon>
+        <p class="empty-message">No stories found.</p>
+        <p class="empty-subtitle">Try adjusting your search terms or check back later.</p>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Material Pagination -->
+  <div *ngIf="!loading() && !error() && stories().length > 0" class="pagination-section">
+    <mat-card class="pagination-card">
+      <mat-card-content>
+        <div class="pagination-controls">
+          <button
+            mat-icon-button
+            (click)="goToPreviousPage()"
+            [disabled]="currentPage() <= 1"
+            matTooltip="Previous page">
+            <mat-icon>chevron_left</mat-icon>
+          </button>
+          
+          <span class="page-info">Page {{ currentPage() }}</span>
+          
+          <button
+            mat-icon-button
+            (click)="goToNextPage()"
+            matTooltip="Next page">
+            <mat-icon>chevron_right</mat-icon>
+          </button>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</div>

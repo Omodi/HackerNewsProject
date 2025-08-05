@@ -38,35 +38,6 @@ public class StoriesController : ControllerBase
         }
     }
 
-    [HttpGet("search")]
-    public async Task<ActionResult<PagedResult<Story>>> SearchStories(
-        [FromQuery] string query,
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 20)
-    {
-        try
-        {
-            if (string.IsNullOrWhiteSpace(query))
-            {
-                return BadRequest("Query parameter is required");
-            }
-
-            var (validPage, validPageSize) = ValidatePagination(page, pageSize);
-
-            _logger.LogInformation("Searching stories - Query: {Query}, Page: {Page}, PageSize: {PageSize}", 
-                query, validPage, validPageSize);
-            
-            var result = await _hackerNewsService.SearchStoriesAsync(query, validPage, validPageSize);
-            return Ok(result);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error searching stories - Query: {Query}, Page: {Page}, PageSize: {PageSize}", 
-                query, page, pageSize);
-            return StatusCode(500, "An error occurred while searching stories");
-        }
-    }
-
     [HttpGet("{id}")]
     public async Task<ActionResult<Story>> GetStory(int id)
     {
