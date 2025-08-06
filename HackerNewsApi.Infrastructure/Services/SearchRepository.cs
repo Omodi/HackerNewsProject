@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System.Globalization;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace HackerNewsApi.Infrastructure.Services;
 
@@ -30,7 +31,7 @@ public class SearchRepository : ISearchRepository
 
             // Get paginated story IDs from FTS search with filters applied
             var storyIds = await GetFtsMatchingStoryIds(query);
-            
+
             // Get the actual story entities from the IDs
             var stories = await GetStoriesFromIds(storyIds, query);
 
@@ -66,7 +67,7 @@ public class SearchRepository : ISearchRepository
             FormattableString ftsQuery = $"""
                 SELECT DISTINCT Title, Author, Domain, Score
                 FROM StoriesSearch
-                WHERE StoriesSearch MATCH '{searchTerm}'
+                WHERE StoriesSearch MATCH '{searchTerm}*'
                 ORDER BY Score DESC, CreatedAt DESC
                 LIMIT {limit}
                 """;
@@ -83,13 +84,13 @@ public class SearchRepository : ISearchRepository
                 {
                     suggestions.Add(result.Title);
                 }
-                
+
                 if (!string.IsNullOrEmpty(result.Author) &&
                     result.Author.Contains(partialQuery, StringComparison.OrdinalIgnoreCase))
                 {
                     suggestions.Add(result.Author);
                 }
-                
+
                 if (!string.IsNullOrEmpty(result.Domain) &&
                     result.Domain.Contains(partialQuery, StringComparison.OrdinalIgnoreCase))
                 {
@@ -109,10 +110,29 @@ public class SearchRepository : ISearchRepository
 
     private static string EscapeFtsQuery(string query)
     {
-        // Escape FTS5 special characters: " ' \ * AND OR NOT
-        return query.Replace("\"", "\"\"")
-                   .Replace("'", "''")
-                   .Replace("\\", "\\\\");
+        if (string.IsNullOrWhiteSpace(query))
+            return string.Empty;
+
+        // Remove control characters
+        query = Regex.Replace(query.Trim(), @"[\x00-\x1F\x7F]", " ");
+        
+        // Normalize whitespace
+        query = Regex.Replace(query, @"\s+", " ");
+        
+        // Remove FTS5 reserved words (but preserve them in quoted phrases)
+        query = Regex.Replace(query, @"\b(AND|OR|NOT|NEAR)\b", " ", RegexOptions.IgnoreCase);
+        
+        // Escape special FTS5 characters including apostrophes
+        // Note: Apostrophes must be removed from MATCH queries even though the tokenizer handles them in content
+        query = Regex.Replace(query, @"[""'\[\]{}()*^$.|?+\\]", " ");
+        
+        // Final whitespace cleanup
+        query = Regex.Replace(query, @"\s+", " ").Trim();
+        
+        if (string.IsNullOrWhiteSpace(query))
+            return "*";
+            
+        return query;
     }
 
     // Data transfer object for FTS suggestion results
@@ -145,12 +165,12 @@ public class SearchRepository : ISearchRepository
     {
         try
         {
-            // Build only the search query, no count needed
-            var ftsQuery = BuildFtsQueries(query);
+            // Build the search query as raw SQL
+            var ftsQuery = BuildFtsQuery(query);
 
-            // Get paginated results from FTS table
+            // Execute as raw SQL since FTS queries don't work well with EF parameterization
             var matchingIds = await _context.Database
-                .SqlQuery<int>(ftsQuery)
+                .SqlQueryRaw<int>(ftsQuery)
                 .ToListAsync();
 
             _logger.LogDebug("FTS search for '{Query}' returned {Count} matches", query.Query, matchingIds.Count);
@@ -178,29 +198,30 @@ public class SearchRepository : ISearchRepository
         return results.Select(entity => MapToStory(entity));
     }
 
-    private FormattableString BuildFtsQueries(SearchQuery query)
+    private string BuildFtsQuery(SearchQuery query)
     {
         var skip = (query.Page - 1) * query.PageSize;
         var filterClause = GetFtsFilterClause(query.Filters);
         var orderClause = GetFtsOrderClause(query.SortBy, !string.IsNullOrWhiteSpace(query.Query));
 
-        FormattableString ftsQuery;
+        string ftsQuery;
 
         if (!string.IsNullOrWhiteSpace(query.Query))
         {
-            // Escape the search term for FTS but let Entity Framework handle parameterization
+            // Escape the search term for FTS
             var escapedQuery = EscapeFtsQuery(query.Query);
-            
-            _logger.LogDebug("Search query: '{Query}' -> escaped: '{EscapedQuery}'", query.Query, escapedQuery);
 
-            // Text search with filters - manually quote the search term since EF doesn't handle FTS quoting
+            _logger.LogDebug("Search query: '{Query}' -> escaped: '{EscapedQuery}'", query.Query, escapedQuery);
+            _logger.LogDebug("Original query contains apostrophes: {HasApostrophes}", query.Query.Contains('\''));
+
+            // Text search with filters - build as raw SQL since FTS doesn't work well with EF parameterization
             if (!string.IsNullOrEmpty(filterClause))
             {
-                ftsQuery = $"SELECT rowid FROM StoriesSearch WHERE StoriesSearch MATCH '{escapedQuery}' AND {filterClause} {orderClause} LIMIT {query.PageSize} OFFSET {skip}";
+                ftsQuery = $"SELECT rowid FROM StoriesSearch WHERE StoriesSearch MATCH '{escapedQuery}*' AND {filterClause} {orderClause} LIMIT {query.PageSize} OFFSET {skip}";
             }
             else
             {
-                ftsQuery = $"SELECT rowid FROM StoriesSearch WHERE StoriesSearch MATCH '{escapedQuery}' {orderClause} LIMIT {query.PageSize} OFFSET {skip}";
+                ftsQuery = $"SELECT rowid FROM StoriesSearch WHERE StoriesSearch MATCH '{escapedQuery}*' {orderClause} LIMIT {query.PageSize} OFFSET {skip}";
             }
         }
         else
@@ -216,7 +237,7 @@ public class SearchRepository : ISearchRepository
             }
         }
 
-        _logger.LogDebug("Generated FTS Query: {FtsQuery}", ftsQuery.ToString());
+        _logger.LogDebug("Generated FTS Query: {FtsQuery}", ftsQuery);
 
         return ftsQuery;
     }
@@ -229,12 +250,12 @@ public class SearchRepository : ISearchRepository
 
         if (filters.FromDate.HasValue)
         {
-            conditions.Add($"CreatedAt >= '{filters.FromDate.Value:yyyy-MM-dd HH:mm:ss}'");
+            conditions.Add($"CreatedAt >= '{filters.FromDate.Value.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)}'");
         }
 
         if (filters.ToDate.HasValue)
         {
-            conditions.Add($"CreatedAt <= '{filters.ToDate.Value:yyyy-MM-dd HH:mm:ss}'");
+            conditions.Add($"CreatedAt <= '{filters.ToDate.Value.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)}'");
         }
 
         if (filters.MinScore.HasValue)
@@ -249,12 +270,14 @@ public class SearchRepository : ISearchRepository
 
         if (!string.IsNullOrEmpty(filters.Author))
         {
-            conditions.Add($"Author = '{filters.Author.Replace("'", "''")}'");
+            var escapedAuthor = EscapeFtsQuery(filters.Author);
+            conditions.Add($"Author MATCH '{escapedAuthor}*'");
         }
 
         if (!string.IsNullOrEmpty(filters.Domain))
         {
-            conditions.Add($"Domain = '{filters.Domain.Replace("'", "''")}'");
+            var escapedDomain = EscapeFtsQuery(filters.Domain);
+            conditions.Add($"Domain MATCH '{escapedDomain}*'");
         }
 
         if (filters.HasUrl.HasValue)
@@ -374,7 +397,7 @@ public class SearchRepository : ISearchRepository
             _logger.LogInformation("Bulk indexing {Count} stories", storyList.Count);
 
             var storyIds = storyList.Select(s => s.Id).ToList();
-            
+
             // Fetch existing stories for update
             var existingStories = await _context.Stories
                 .Where(s => storyIds.Contains(s.Id))
@@ -413,7 +436,7 @@ public class SearchRepository : ISearchRepository
                 foreach (var story in storiesToUpdate)
                 {
                     var existingStory = existingStories.First(e => e.Id == story.Id);
-                    
+
                     // Update the properties
                     existingStory.Title = story.Title;
                     existingStory.Author = story.By;
@@ -425,12 +448,12 @@ public class SearchRepository : ISearchRepository
                     existingStory.IndexedAt = DateTime.UtcNow;
                     // Note: CreatedAt should not be updated for existing stories
                 }
-                
+
                 _logger.LogDebug("Updating {Count} existing stories in index", storiesToUpdate.Count);
             }
 
             await _context.SaveChangesAsync();
-            _logger.LogInformation("Successfully bulk indexed {Count} stories ({NewCount} new, {UpdatedCount} updated)", 
+            _logger.LogInformation("Successfully bulk indexed {Count} stories ({NewCount} new, {UpdatedCount} updated)",
                 storyList.Count, newStories.Count, storiesToUpdate.Count);
         }
         catch (Exception ex)
@@ -464,7 +487,7 @@ public class SearchRepository : ISearchRepository
     {
         // Convert DateTime back to Unix timestamp for Time property
         var unixTime = ((DateTimeOffset)entity.CreatedAt).ToUnixTimeSeconds();
-        
+
         return new Story
         {
             Id = entity.Id,
