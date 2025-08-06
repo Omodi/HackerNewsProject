@@ -13,7 +13,7 @@ A modern full-stack application that provides a clean interface for browsing Hac
 ### 1. Clone the Repository
 ```bash
 git clone https://github.com/Omodi/HackerNewsProject/
-cd HackerNews
+cd HackerNewsProject
 ```
 
 ### 2. Backend Setup (ASP.NET Core API)
