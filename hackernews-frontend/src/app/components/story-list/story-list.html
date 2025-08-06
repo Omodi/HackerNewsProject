@@ -322,7 +322,7 @@
   </div>
 
   <!-- Material Pagination -->
-  <div *ngIf="!loading() && !error() && stories().length > 0" class="pagination-section">
+  <div *ngIf="!loading() && !error() && (stories().length > 0 || currentPage() > 1)" class="pagination-section">
     <mat-card class="pagination-card">
       <mat-card-content>
         <div class="pagination-controls">
@@ -339,6 +339,7 @@
           <button
             mat-icon-button
             (click)="goToNextPage()"
+            [disabled]="!hasNextPage()"
             matTooltip="Next page">
             <mat-icon>chevron_right</mat-icon>
           </button>

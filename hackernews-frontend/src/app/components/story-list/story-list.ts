@@ -62,6 +62,8 @@ export class StoryList implements OnInit {
   suggestions = signal<string[]>([]);
   loadingSuggestions = signal<boolean>(false);
   filtersExpanded = signal<boolean>(false);
+  hasNextPage = signal<boolean>(true);
+  currentPageSize = signal<number>(20);
 
   filtersForm: FormGroup;
 
@@ -119,8 +121,7 @@ export class StoryList implements OnInit {
   loadStories(page: number = 1) {
     this.loading.set(true);
     this.error.set(null);
-    this.currentPage.set(page);
-
+    
     const query = this.searchQuery();
     
     if (query || this.hasActiveFilters()) {
@@ -134,7 +135,20 @@ export class StoryList implements OnInit {
 
       this.hackerNewsService.searchStories(searchQuery).subscribe({
         next: (result) => {
+          console.log(`Search results for page ${page}:`, result.items.length, 'items');
+          if (result.items.length === 0 && page > 1) {
+            // No results on this page, stay on previous page and disable next
+            console.log('No results found, staying on previous page');
+            this.currentPage.set(page - 1);
+            this.hasNextPage.set(false);
+            this.loading.set(false);
+            return;
+          }
+          this.currentPage.set(page);
           this.stories.set(result.items);
+          this.currentPageSize.set(result.pageSize);
+          // If we got fewer items than requested, we're at the end
+          this.hasNextPage.set(result.items.length === result.pageSize);
           this.loading.set(false);
         },
         error: (err) => {
@@ -146,7 +160,20 @@ export class StoryList implements OnInit {
     } else {
       this.hackerNewsService.getStories(page, 20).subscribe({
         next: (result) => {
+          console.log(`Stories for page ${page}:`, result.items.length, 'items');
+          if (result.items.length === 0 && page > 1) {
+            // No results on this page, stay on previous page and disable next
+            console.log('No results found, staying on previous page');
+            this.currentPage.set(page - 1);
+            this.hasNextPage.set(false);
+            this.loading.set(false);
+            return;
+          }
+          this.currentPage.set(page);
           this.stories.set(result.items);
+          this.currentPageSize.set(result.pageSize);
+          // If we got fewer items than requested, we're at the end
+          this.hasNextPage.set(result.items.length === result.pageSize);
           this.loading.set(false);
         },
         error: (err) => {
@@ -210,7 +237,9 @@ export class StoryList implements OnInit {
   }
 
   goToNextPage() {
-    this.loadStories(this.currentPage() + 1);
+    if (this.hasNextPage()) {
+      this.loadStories(this.currentPage() + 1);
+    }
   }
 
   goToPreviousPage() {
@@ -334,6 +363,7 @@ export class StoryList implements OnInit {
     });
     this.isSearchMode.set(false);
     this.currentPage.set(1);
+    this.hasNextPage.set(true);
     this.loadStories(1);
   }
 }

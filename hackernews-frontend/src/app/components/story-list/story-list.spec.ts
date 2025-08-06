@@ -124,6 +124,7 @@ describe('StoryList', () => {
 
     it('should handle API errors', () => {
       const errorMessage = 'API Error';
+      spyOn(console, 'error'); // Suppress console.error during test
       mockHackerNewsService.getStories.and.returnValue(throwError(() => new Error(errorMessage)));
 
       component.loadStories(1);
@@ -131,6 +132,7 @@ describe('StoryList', () => {
       expect(component.loading()).toBe(false);
       expect(component.error()).toBe('Failed to load stories. Please try again.');
       expect(component.stories()).toEqual([]);
+      expect(console.error).toHaveBeenCalledWith('Error loading stories:', jasmine.any(Error));
     });
 
     it('should search stories when search query is set', () => {
@@ -459,6 +461,7 @@ describe('StoryList', () => {
     it('should handle search stories error', () => {
       component.searchQuery.set('test query');
       component.isSearchMode.set(true);
+      spyOn(console, 'error'); // Suppress console.error during test
       mockHackerNewsService.searchStories.and.returnValue(throwError(() => new Error('Search API Error')));
 
       component.loadStories(1);
@@ -466,6 +469,7 @@ describe('StoryList', () => {
       expect(component.loading()).toBe(false);
       expect(component.error()).toBe('Failed to load stories. Please try again.');
       expect(component.stories()).toEqual([]);
+      expect(console.error).toHaveBeenCalledWith('Error loading stories:', jasmine.any(Error));
     });
   });
 
