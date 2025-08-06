@@ -178,7 +178,7 @@ public class SearchRepository : ISearchRepository
         return results.Select(entity => MapToStory(entity));
     }
 
-    private FormattableString ftsQuery BuildFtsQueries(SearchQuery query)
+    private FormattableString BuildFtsQueries(SearchQuery query)
     {
         var skip = (query.Page - 1) * query.PageSize;
         var filterClause = GetFtsFilterClause(query.Filters);
