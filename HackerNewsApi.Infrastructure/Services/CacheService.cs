@@ -94,10 +94,17 @@ public class CacheService : ICacheService
         {
             if (value is Story story)
             {
-                // Create a new scope to get a fresh DbContext for the background operation
-                using var scope = _serviceScopeFactory.CreateScope();
-                var dbContext = scope.ServiceProvider.GetRequiredService<SearchDbContext>();
-                await PersistStoryToDatabase(story, dbContext);
+                try
+                {
+                    using var scope = _serviceScopeFactory.CreateScope();
+                    var dbContext = scope.ServiceProvider.GetRequiredService<SearchDbContext>();
+                    await PersistStoryToDatabase(story, dbContext);
+                }
+                catch (ObjectDisposedException)
+                {
+                    _logger.LogDebug("Background: Service provider disposed, skipping database persistence for story {StoryId}", story.Id);
+                    return;
+                }
             }
         }
         catch (Exception ex)
@@ -108,35 +115,55 @@ public class CacheService : ICacheService
 
     private async Task PersistStoryToDatabase(Story story, SearchDbContext dbContext)
     {
-        var existingStory = await dbContext.Stories.FindAsync(story.Id);
-
-        var storyEntity = new StoryEntity
+        try
         {
-            Id = story.Id,
-            Title = story.Title,
-            Author = story.By,
-            Url = story.Url,
-            Score = story.Score,
-            CreatedAt = story.CreatedAt,
-            UpdatedAt = DateTime.UtcNow,
-            CommentCount = story.CommentCount,
-            Domain = ExtractDomain(story.Url),
-            IndexedAt = DateTime.UtcNow
-        };
+            // Add diagnostic logging to check database location and connection
+            _logger.LogInformation("Cache: Attempting to persist story {StoryId} to database", story.Id);
+            _logger.LogInformation("Cache: Database connection string: {ConnectionString}",
+                dbContext.Database.GetConnectionString());
+            _logger.LogInformation("Cache: Current working directory: {WorkingDirectory}",
+                Environment.CurrentDirectory);
+            
+            // Check if Stories table exists
+            var tablesQuery = "SELECT name FROM sqlite_master WHERE type='table' AND name='Stories';";
+            var tableExists = await dbContext.Database.ExecuteSqlRawAsync(tablesQuery);
+            _logger.LogInformation("Cache: Stories table check result: {TableExists}", tableExists);
+            
+            var existingStory = await dbContext.Stories.FindAsync(story.Id);
 
-        if (existingStory == null)
-        {
-            dbContext.Stories.Add(storyEntity);
-            _logger.LogDebug("Background: Adding cached story to database: {StoryId}", story.Id);
+            var storyEntity = new StoryEntity
+            {
+                Id = story.Id,
+                Title = story.Title,
+                Author = story.By,
+                Url = story.Url,
+                Score = story.Score,
+                CreatedAt = story.CreatedAt,
+                UpdatedAt = DateTime.UtcNow,
+                CommentCount = story.CommentCount,
+                Domain = ExtractDomain(story.Url),
+                IndexedAt = DateTime.UtcNow
+            };
+
+            if (existingStory == null)
+            {
+                dbContext.Stories.Add(storyEntity);
+                _logger.LogDebug("Background: Adding cached story to database: {StoryId}", story.Id);
+            }
+            else
+            {
+                dbContext.Entry(existingStory).CurrentValues.SetValues(storyEntity);
+                _logger.LogDebug("Background: Updating cached story in database: {StoryId}", story.Id);
+            }
+
+            await dbContext.SaveChangesAsync();
+            _logger.LogDebug("Background: Successfully persisted cached story {StoryId} to database", story.Id);
         }
-        else
+        catch (Exception ex)
         {
-            dbContext.Entry(existingStory).CurrentValues.SetValues(storyEntity);
-            _logger.LogDebug("Background: Updating cached story in database: {StoryId}", story.Id);
+            _logger.LogError(ex, "Cache: Failed to persist story {StoryId}: {Error}", story.Id, ex.Message);
+            throw;
         }
-
-        await dbContext.SaveChangesAsync();
-        _logger.LogDebug("Background: Successfully persisted cached story {StoryId} to database", story.Id);
     }
 
 

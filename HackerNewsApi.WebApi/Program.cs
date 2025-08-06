@@ -21,7 +21,10 @@ builder.Services.AddMemoryCache(options =>
 builder.Services.AddApplicationInsightsTelemetry();
 
 builder.Services.AddDbContext<SearchDbContext>(options =>
-    options.UseSqlite("Data Source=search.db"));
+{
+    var dbPath = Path.Combine(builder.Environment.ContentRootPath, "search.db");
+    options.UseSqlite($"Data Source={dbPath}");
+});
 
 builder.Services.AddScoped<ICacheService, CacheService>();
 builder.Services.AddScoped<IHackerNewsService, HackerNewsService>();
@@ -90,7 +93,11 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+// Only use HTTPS redirection in production or when HTTPS is explicitly configured
+if (!app.Environment.IsDevelopment() || app.Configuration.GetValue<string>("ASPNETCORE_URLS")?.Contains("https") == true)
+{
+    app.UseHttpsRedirection();
+}
 app.UseCors("AllowAzure");
 app.UseAuthorization();
 app.MapControllers();

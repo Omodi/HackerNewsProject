@@ -145,7 +145,6 @@ public class HackerNewsServiceTests
         result.Items.Should().BeEquivalentTo(stories);
         result.Page.Should().Be(1);
         result.PageSize.Should().Be(2);
-        result.TotalCount.Should().Be(5);
 
         // Verify the page result was cached
         _mockCacheService.Verify(x => x.SetAsync("stories_page_1_2", It.IsAny<PagedResult<Story>>(), It.IsAny<TimeSpan>()), Times.Once);
@@ -164,7 +163,6 @@ public class HackerNewsServiceTests
             },
             Page = 1,
             PageSize = 2,
-            TotalCount = 5
         };
 
         _mockCacheService.Setup(x => x.GetAsync<PagedResult<Story>>("stories_page_1_2"))

@@ -35,8 +35,7 @@ public class SearchControllerTests
                 new Story { Id = 2, Title = "Test Story 2", By = "user2" }
             },
             Page = 1,
-            PageSize = 20,
-            TotalCount = 2
+            PageSize = 20
         };
 
         _mockSearchRepository.Setup(x => x.SearchStoriesAsync(It.IsAny<SearchQuery>()))
@@ -64,7 +63,6 @@ public class SearchControllerTests
             },
             Page = 1,
             PageSize = 20,
-            TotalCount = 2
         };
 
         _mockSearchRepository.Setup(x => x.SearchStoriesAsync(It.IsAny<SearchQuery>()))
@@ -81,7 +79,7 @@ public class SearchControllerTests
     public async Task SearchAsync_WithInvalidPage_ShouldNormalizePage()
     {
         
-        var expectedResult = new PagedResult<Story> { Items = Array.Empty<Story>(), TotalCount = 0 };
+        var expectedResult = new PagedResult<Story> { Items = Array.Empty<Story>() };
         _mockSearchRepository.Setup(x => x.SearchStoriesAsync(It.IsAny<SearchQuery>()))
                              .ReturnsAsync(expectedResult);
 
@@ -95,7 +93,7 @@ public class SearchControllerTests
     public async Task SearchAsync_WithInvalidPageSize_ShouldNormalizePageSize()
     {
         
-        var expectedResult = new PagedResult<Story> { Items = Array.Empty<Story>(), TotalCount = 0 };
+        var expectedResult = new PagedResult<Story> { Items = Array.Empty<Story>() };
         _mockSearchRepository.Setup(x => x.SearchStoriesAsync(It.IsAny<SearchQuery>()))
                              .ReturnsAsync(expectedResult);
 
@@ -111,7 +109,7 @@ public class SearchControllerTests
         
         var fromDate = DateTime.UtcNow.AddDays(-30);
         var toDate = DateTime.UtcNow;
-        var expectedResult = new PagedResult<Story> { Items = Array.Empty<Story>(), TotalCount = 0 };
+        var expectedResult = new PagedResult<Story> { Items = Array.Empty<Story>() };
 
         _mockSearchRepository.Setup(x => x.SearchStoriesAsync(It.IsAny<SearchQuery>()))
                              .ReturnsAsync(expectedResult);
@@ -155,7 +153,7 @@ public class SearchControllerTests
     public async Task SearchAsync_WithDifferentSortOrders_ShouldPassSortOrderCorrectly(SearchSortOrder sortOrder)
     {
         
-        var expectedResult = new PagedResult<Story> { Items = Array.Empty<Story>(), TotalCount = 0 };
+        var expectedResult = new PagedResult<Story> { Items = Array.Empty<Story>() };
         _mockSearchRepository.Setup(x => x.SearchStoriesAsync(It.IsAny<SearchQuery>()))
                              .ReturnsAsync(expectedResult);
 
@@ -347,7 +345,7 @@ public class SearchControllerTests
         int inputPage, int inputPageSize, int expectedPage, int expectedPageSize)
     {
         
-        var expectedResult = new PagedResult<Story> { Items = Array.Empty<Story>(), TotalCount = 0 };
+        var expectedResult = new PagedResult<Story> { Items = Array.Empty<Story>() };
         _mockSearchRepository.Setup(x => x.SearchStoriesAsync(It.IsAny<SearchQuery>()))
                              .ReturnsAsync(expectedResult);
 
@@ -362,7 +360,7 @@ public class SearchControllerTests
     public async Task SearchAsync_WithNullFilters_ShouldCreateFiltersObject()
     {
         
-        var expectedResult = new PagedResult<Story> { Items = Array.Empty<Story>(), TotalCount = 0 };
+        var expectedResult = new PagedResult<Story> { Items = Array.Empty<Story>() };
         _mockSearchRepository.Setup(x => x.SearchStoriesAsync(It.IsAny<SearchQuery>()))
                              .ReturnsAsync(expectedResult);
 

@@ -92,7 +92,6 @@ public class HackerNewsService : IHackerNewsService
         _logger.LogInformation("Getting stories page {Page} with size {PageSize} from API", page, pageSize);
 
         var storyIds = await GetNewStoryIdsAsync();
-        var totalCount = storyIds.Count();
 
         var pagedIds = storyIds
             .Skip((page - 1) * pageSize)
@@ -112,7 +111,6 @@ public class HackerNewsService : IHackerNewsService
         var result = new PagedResult<Story>
         {
             Items = stories,
-            TotalCount = totalCount,
             Page = page,
             PageSize = pageSize
         };

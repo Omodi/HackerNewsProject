@@ -33,8 +33,7 @@ public class StoriesControllerTests
                 new Story { Id = 2, Title = "Test Story 2" }
             },
             Page = 1,
-            PageSize = 20,
-            TotalCount = 1
+            PageSize = 20
         };
 
         _mockHackerNewsService.Setup(x => x.GetStoriesAsync(1, 20))
@@ -58,8 +57,7 @@ public class StoriesControllerTests
         {
             Items = new[] { new Story { Id = 1, Title = "Test Story" } },
             Page = 1,
-            PageSize = 20,
-            TotalCount = 1
+            PageSize = 20
         };
 
         _mockHackerNewsService.Setup(x => x.GetStoriesAsync(1, 20))
@@ -82,7 +80,6 @@ public class StoriesControllerTests
             Items = new[] { new Story { Id = 1, Title = "Test Story" } },
             Page = 1,
             PageSize = 20,
-            TotalCount = 1
         };
 
         _mockHackerNewsService.Setup(x => x.GetStoriesAsync(1, 20))
@@ -200,8 +197,7 @@ public class StoriesControllerTests
         {
             Items = new[] { new Story { Id = 1, Title = "Test" } },
             Page = expectedPage,
-            PageSize = 20,
-            TotalCount = 1
+            PageSize = 20
         };
 
         _mockHackerNewsService.Setup(x => x.GetStoriesAsync(expectedPage, expectedPageSize))

@@ -29,7 +29,7 @@ public class SearchRepository : ISearchRepository
             _logger.LogInformation("Executing search query: {Query}", query.Query);
 
             // Get paginated story IDs from FTS search with filters applied
-            var (storyIds, totalCount) = await GetFtsMatchingStoryIds(query);
+            var storyIds = await GetFtsMatchingStoryIds(query);
             
             // Get the actual story entities from the IDs
             var stories = await GetStoriesFromIds(storyIds, query);
@@ -37,7 +37,6 @@ public class SearchRepository : ISearchRepository
             return new PagedResult<Story>
             {
                 Items = stories,
-                TotalCount = totalCount,
                 Page = query.Page,
                 PageSize = query.PageSize
             };
@@ -67,7 +66,7 @@ public class SearchRepository : ISearchRepository
             FormattableString ftsQuery = $"""
                 SELECT DISTINCT Title, Author, Domain, Score
                 FROM StoriesSearch
-                WHERE StoriesSearch MATCH "{searchTerm}"
+                WHERE StoriesSearch MATCH '{searchTerm}'
                 ORDER BY Score DESC, CreatedAt DESC
                 LIMIT {limit}
                 """;
@@ -125,17 +124,7 @@ public class SearchRepository : ISearchRepository
         public int Score { get; set; }
     }
 
-    // Data transfer object for count queries
-    private class CountResult
-    {
-        public int Count { get; set; }
-    }
-
-    // Data transfer object for rowid queries
-    private class RowIdResult
-    {
-        public int RowId { get; set; }
-    }
+    // Note: Removed CountResult and RowIdResult classes - now using int directly
 
     private void ValidateSearchQuery(SearchQuery query)
     {
@@ -152,76 +141,26 @@ public class SearchRepository : ISearchRepository
             throw new ArgumentException("Search query is too long", nameof(query));
     }
 
-    private async Task<(IEnumerable<int> storyIds, int totalCount)> GetFtsMatchingStoryIds(SearchQuery query)
+    private async Task<IEnumerable<int>> GetFtsMatchingStoryIds(SearchQuery query)
     {
         try
         {
-            // Check FTS structure and build appropriate queries
-            var (ftsQuery, countQuery) = BuildFtsQueries(query);
-
-            // Get total count from FTS table
-            var totalCount = await _context.Database
-                .SqlQueryRaw<CountResult>(countQuery.ToString())
-                .Select(r => r.Count)
-                .FirstAsync();
+            // Build only the search query, no count needed
+            var ftsQuery = BuildFtsQueries(query);
 
             // Get paginated results from FTS table
             var matchingIds = await _context.Database
-                .SqlQueryRaw<RowIdResult>(ftsQuery.ToString())
-                .Select(r => r.RowId)
+                .SqlQuery<int>(ftsQuery)
                 .ToListAsync();
 
-            _logger.LogDebug("FTS search for '{Query}' returned {Count} matches out of {Total} total",
-                query.Query, matchingIds.Count, totalCount);
+            _logger.LogDebug("FTS search for '{Query}' returned {Count} matches", query.Query, matchingIds.Count);
 
-            return (matchingIds, totalCount);
+            return matchingIds;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "FTS search failed for query '{Query}', falling back to direct database search", query.Query);
-            return await GetFallbackSearchResults(query);
-        }
-    }
-
-    private async Task<(IEnumerable<int> storyIds, int totalCount)> GetFallbackSearchResults(SearchQuery query)
-    {
-        try
-        {
-            _logger.LogDebug("Using fallback database search for query: {Query}", query.Query);
-            
-            var baseQuery = _context.Stories.AsQueryable();
-
-            // Apply text search if provided
-            if (!string.IsNullOrWhiteSpace(query.Query))
-            {
-                var searchTerm = query.Query.ToLower();
-                baseQuery = baseQuery.Where(s =>
-                    s.Title.ToLower().Contains(searchTerm) ||
-                    s.Author.ToLower().Contains(searchTerm) ||
-                    (s.Domain != null && s.Domain.ToLower().Contains(searchTerm)));
-            }
-
-            // Apply filters
-            baseQuery = ApplySearchFilters(baseQuery, query.Filters);
-
-            // Get total count
-            var totalCount = await baseQuery.CountAsync();
-
-            // Apply sorting and pagination
-            baseQuery = ApplySorting(baseQuery, query.SortBy);
-            var skip = (query.Page - 1) * query.PageSize;
-            var storyIds = await baseQuery
-                .Skip(skip)
-                .Take(query.PageSize)
-                .Select(s => s.Id)
-                .ToListAsync();
-
-            return (storyIds, totalCount);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Fallback search also failed for query: {Query}", query.Query);
-            return (Enumerable.Empty<int>(), 0);
+            _logger.LogWarning(ex, "FTS search failed for query '{Query}', returning empty results", query.Query);
+            return Enumerable.Empty<int>();
         }
     }
 
@@ -239,27 +178,29 @@ public class SearchRepository : ISearchRepository
         return results.Select(entity => MapToStory(entity));
     }
 
-    private (FormattableString ftsQuery, FormattableString countQuery) BuildFtsQueries(SearchQuery query)
+    private FormattableString ftsQuery BuildFtsQueries(SearchQuery query)
     {
         var skip = (query.Page - 1) * query.PageSize;
         var filterClause = GetFtsFilterClause(query.Filters);
         var orderClause = GetFtsOrderClause(query.SortBy, !string.IsNullOrWhiteSpace(query.Query));
 
         FormattableString ftsQuery;
-        FormattableString countQuery;
 
         if (!string.IsNullOrWhiteSpace(query.Query))
         {
-            // Text search with filters
+            // Escape the search term for FTS but let Entity Framework handle parameterization
+            var escapedQuery = EscapeFtsQuery(query.Query);
+            
+            _logger.LogDebug("Search query: '{Query}' -> escaped: '{EscapedQuery}'", query.Query, escapedQuery);
+
+            // Text search with filters - manually quote the search term since EF doesn't handle FTS quoting
             if (!string.IsNullOrEmpty(filterClause))
             {
-                ftsQuery = $"SELECT rowid FROM StoriesSearch WHERE StoriesSearch MATCH {query.Query} AND {filterClause} {orderClause} LIMIT {query.PageSize} OFFSET {skip}";
-                countQuery = $"SELECT COUNT(*) FROM StoriesSearch WHERE StoriesSearch MATCH {query.Query} AND {filterClause}";
+                ftsQuery = $"SELECT rowid FROM StoriesSearch WHERE StoriesSearch MATCH '{escapedQuery}' AND {filterClause} {orderClause} LIMIT {query.PageSize} OFFSET {skip}";
             }
             else
             {
-                ftsQuery = $"SELECT rowid FROM StoriesSearch WHERE StoriesSearch MATCH {query.Query} {orderClause} LIMIT {query.PageSize} OFFSET {skip}";
-                countQuery = $"SELECT COUNT(*) FROM StoriesSearch WHERE StoriesSearch MATCH {query.Query}";
+                ftsQuery = $"SELECT rowid FROM StoriesSearch WHERE StoriesSearch MATCH '{escapedQuery}' {orderClause} LIMIT {query.PageSize} OFFSET {skip}";
             }
         }
         else
@@ -268,16 +209,16 @@ public class SearchRepository : ISearchRepository
             if (!string.IsNullOrEmpty(filterClause))
             {
                 ftsQuery = $"SELECT rowid FROM StoriesSearch WHERE {filterClause} {orderClause} LIMIT {query.PageSize} OFFSET {skip}";
-                countQuery = $"SELECT COUNT(*) FROM StoriesSearch WHERE {filterClause}";
             }
             else
             {
                 ftsQuery = $"SELECT rowid FROM StoriesSearch {orderClause} LIMIT {query.PageSize} OFFSET {skip}";
-                countQuery = $"SELECT COUNT(*) FROM StoriesSearch";
             }
         }
 
-        return (ftsQuery, countQuery);
+        _logger.LogDebug("Generated FTS Query: {FtsQuery}", ftsQuery.ToString());
+
+        return ftsQuery;
     }
 
     private string GetFtsFilterClause(SearchFilters? filters)

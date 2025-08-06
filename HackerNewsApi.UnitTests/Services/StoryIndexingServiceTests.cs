@@ -216,7 +216,6 @@ public class StoryIndexingServiceTests : DatabaseTestBase, IClassFixture<Databas
                               .ReturnsAsync(new PagedResult<Story>
                               {
                                   Items = Array.Empty<Story>(),
-                                  TotalCount = 0,
                                   Page = 1,
                                   PageSize = 20
                               });
@@ -241,7 +240,6 @@ public class StoryIndexingServiceTests : DatabaseTestBase, IClassFixture<Databas
                               .ReturnsAsync(new PagedResult<Story>
                               {
                                   Items = null!,
-                                  TotalCount = 0,
                                   Page = 1,
                                   PageSize = 20
                               });
@@ -301,7 +299,6 @@ public class StoryIndexingServiceTests : DatabaseTestBase, IClassFixture<Databas
                               .ReturnsAsync(new PagedResult<Story>
                               {
                                   Items = stories,
-                                  TotalCount = 1,
                                   Page = 1,
                                   PageSize = 1000
                               });
@@ -374,7 +371,6 @@ public class StoryIndexingServiceTests : DatabaseTestBase, IClassFixture<Databas
                               .ReturnsAsync(new PagedResult<Story>
                               {
                                   Items = Array.Empty<Story>(),
-                                  TotalCount = 0,
                                   Page = 1,
                                   PageSize = 1000
                               });

@@ -54,12 +54,8 @@ describe('StoryList', () => {
 
   const mockPagedResult: PagedStoryResult = {
     items: mockStories,
-    totalCount: 2,
     page: 1,
-    pageSize: 20,
-    totalPages: 1,
-    hasNextPage: false,
-    hasPreviousPage: false
+    pageSize: 20
   };
 
   beforeEach(async () => {

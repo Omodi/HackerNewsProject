@@ -48,12 +48,8 @@ describe('HackerNewsService', () => {
             hackerNewsUrl: 'https://news.ycombinator.com/item?id=1'
           }
         ],
-        totalCount: 1,
         page: 1,
-        pageSize: 20,
-        totalPages: 1,
-        hasNextPage: false,
-        hasPreviousPage: false
+        pageSize: 20
       };
 
       service.getStories().subscribe(result => {
@@ -70,12 +66,8 @@ describe('HackerNewsService', () => {
     it('should fetch stories with custom page and size', () => {
       const mockResponse: PagedStoryResult = {
         items: [],
-        totalCount: 0,
         page: 2,
-        pageSize: 10,
-        totalPages: 0,
-        hasNextPage: false,
-        hasPreviousPage: true
+        pageSize: 10
       };
 
       service.getStories(2, 10).subscribe(result => {
@@ -215,12 +207,8 @@ describe('HackerNewsService', () => {
             hackerNewsUrl: 'https://news.ycombinator.com/item?id=1'
           }
         ],
-        totalCount: 1,
         page: 1,
-        pageSize: 20,
-        totalPages: 1,
-        hasNextPage: false,
-        hasPreviousPage: false
+        pageSize: 20
       };
 
       service.searchStories(searchQuery).subscribe(result => {
@@ -248,12 +236,8 @@ describe('HackerNewsService', () => {
 
       const mockResponse: PagedStoryResult = {
         items: [],
-        totalCount: 0,
         page: 1,
-        pageSize: 10,
-        totalPages: 0,
-        hasNextPage: false,
-        hasPreviousPage: false
+        pageSize: 10
       };
 
       service.searchStories(searchQuery).subscribe(result => {
@@ -311,12 +295,8 @@ describe('HackerNewsService', () => {
 
       const mockResponse: PagedStoryResult = {
         items: [],
-        totalCount: 0,
         page: 1,
-        pageSize: 20,
-        totalPages: 0,
-        hasNextPage: false,
-        hasPreviousPage: false
+        pageSize: 20
       };
 
       service.searchStories(searchQuery).subscribe(result => {
@@ -350,12 +330,8 @@ describe('HackerNewsService', () => {
 
       const mockResponse: PagedStoryResult = {
         items: [],
-        totalCount: 0,
         page: 2,
-        pageSize: 10,
-        totalPages: 0,
-        hasNextPage: false,
-        hasPreviousPage: false
+        pageSize: 10
       };
 
       service.searchStories(searchQuery).subscribe(result => {
@@ -381,12 +357,8 @@ describe('HackerNewsService', () => {
 
       const mockResponse: PagedStoryResult = {
         items: [],
-        totalCount: 0,
         page: 1,
-        pageSize: 20,
-        totalPages: 0,
-        hasNextPage: false,
-        hasPreviousPage: false
+        pageSize: 20
       };
 
       service.searchStories(searchQuery).subscribe(result => {
@@ -415,12 +387,8 @@ describe('HackerNewsService', () => {
 
       const mockResponse: PagedStoryResult = {
         items: [],
-        totalCount: 0,
         page: 1,
-        pageSize: 20,
-        totalPages: 0,
-        hasNextPage: false,
-        hasPreviousPage: false
+        pageSize: 20
       };
 
       service.searchStories(searchQuery).subscribe(result => {
@@ -455,12 +423,8 @@ describe('HackerNewsService', () => {
       const req = httpMock.expectOne(`${baseUrl}/stories?page=1&pageSize=20`);
       req.flush({
         items: [apiStory],
-        totalCount: 1,
         page: 1,
-        pageSize: 20,
-        totalPages: 1,
-        hasNextPage: false,
-        hasPreviousPage: false
+        pageSize: 20
       });
     });
 
@@ -488,12 +452,8 @@ describe('HackerNewsService', () => {
       const req = httpMock.expectOne(`${baseUrl}/stories?page=1&pageSize=20`);
       req.flush({
         items: [apiStory],
-        totalCount: 1,
         page: 1,
-        pageSize: 20,
-        totalPages: 1,
-        hasNextPage: false,
-        hasPreviousPage: false
+        pageSize: 20
       });
     });
 
@@ -518,12 +478,8 @@ describe('HackerNewsService', () => {
       const req = httpMock.expectOne(`${baseUrl}/stories?page=1&pageSize=20`);
       req.flush({
         items: [apiStory],
-        totalCount: 1,
         page: 1,
-        pageSize: 20,
-        totalPages: 1,
-        hasNextPage: false,
-        hasPreviousPage: false
+        pageSize: 20
       });
     });
   });

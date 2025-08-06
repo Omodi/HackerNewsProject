@@ -46,7 +46,6 @@ public class SearchRepositoryIntegrationTests : DatabaseTestBase, IClassFixture<
         
         result.Should().NotBeNull();
         result.Items.Should().NotBeNull();
-        result.TotalCount.Should().BeGreaterThan(0);
     }
 
     [Fact]

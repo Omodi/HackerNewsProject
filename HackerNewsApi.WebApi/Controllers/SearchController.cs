@@ -59,8 +59,8 @@ public class SearchController : ControllerBase
 
             var result = await _searchRepository.SearchStoriesAsync(searchQuery);
             
-            _logger.LogDebug("Search returned {Count} results out of {Total} total", 
-                result.Items?.Count() ?? 0, result.TotalCount);
+            _logger.LogDebug("Search returned {Count} results",
+                result.Items?.Count() ?? 0);
 
             return Ok(result);
         }
