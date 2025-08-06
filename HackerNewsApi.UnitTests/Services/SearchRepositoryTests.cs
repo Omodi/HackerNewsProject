@@ -417,9 +417,11 @@ public class SearchRepositoryTests : DatabaseTestBase
     public async Task SearchStoriesAsync_WithDateFilters_ShouldApplyDateFilters()
     {
         // Arrange
-        await SeedTestData();
-        var fromDate = DateTime.UtcNow.AddDays(-2);
-        var toDate = DateTime.UtcNow;
+        var baseDate = new DateTime(2025, 1, 15, 12, 0, 0, DateTimeKind.Utc);
+        await SeedTestDataWithFixedDates(baseDate);
+        
+        var fromDate = baseDate.AddDays(-1); // Should include stories from 2025-01-14 and later
+        var toDate = baseDate; // Up to 2025-01-15
         
         var searchQuery = new SearchQuery
         {
@@ -735,6 +737,52 @@ public class SearchRepositoryTests : DatabaseTestBase
                 Score = 200,
                 CreatedAt = DateTime.UtcNow.AddDays(-3),
                 UpdatedAt = DateTime.UtcNow,
+                CommentCount = 25,
+                Url = "https://dev.to/js-frameworks",
+                Domain = "dev.to"
+            }
+        };
+
+        Context.Stories.AddRange(stories);
+        await Context.SaveChangesAsync();
+    }
+
+    private async Task SeedTestDataWithFixedDates(DateTime baseDate)
+    {
+        var stories = new[]
+        {
+            new StoryEntity
+            {
+                Id = 1,
+                Title = "Test Story One",
+                Author = "testuser1",
+                Score = 100,
+                CreatedAt = baseDate, // 2025-01-15 - within range
+                UpdatedAt = baseDate,
+                CommentCount = 10,
+                Url = "https://example.com/story1",
+                Domain = "example.com"
+            },
+            new StoryEntity
+            {
+                Id = 2,
+                Title = "Another Test Story",
+                Author = "testuser2",
+                Score = 50,
+                CreatedAt = baseDate.AddDays(-2), // 2025-01-13 - outside range
+                UpdatedAt = baseDate,
+                CommentCount = 5,
+                Url = "https://news.com/story2",
+                Domain = "news.com"
+            },
+            new StoryEntity
+            {
+                Id = 3,
+                Title = "JavaScript Framework Discussion",
+                Author = "developer",
+                Score = 200,
+                CreatedAt = baseDate.AddDays(-0.5), // 2025-01-14 12:00 - within range
+                UpdatedAt = baseDate,
                 CommentCount = 25,
                 Url = "https://dev.to/js-frameworks",
                 Domain = "dev.to"

@@ -60,10 +60,8 @@ public class SearchRepository : ISearchRepository
         {
             var suggestions = new List<string>();
 
-            // Escape any special FTS5 characters and add prefix wildcard
             var searchTerm = EscapeFtsQuery(partialQuery.Trim());
 
-            // Get suggestions using FTS5 with prefix matching
             FormattableString ftsQuery = $"""
                 SELECT DISTINCT Title, Author, Domain, Score
                 FROM StoriesSearch
@@ -76,7 +74,6 @@ public class SearchRepository : ISearchRepository
                 .SqlQueryRaw<SuggestionResult>(ftsQuery.ToString())
                 .ToListAsync();
 
-            // Check which columns contain the partial query and add those as suggestions
             foreach (var result in results)
             {
                 if (!string.IsNullOrEmpty(result.Title) &&
@@ -135,7 +132,6 @@ public class SearchRepository : ISearchRepository
         return query;
     }
 
-    // Data transfer object for FTS suggestion results
     private class SuggestionResult
     {
         public string Title { get; set; } = string.Empty;
@@ -143,8 +139,6 @@ public class SearchRepository : ISearchRepository
         public string Domain { get; set; } = string.Empty;
         public int Score { get; set; }
     }
-
-    // Note: Removed CountResult and RowIdResult classes - now using int directly
 
     private void ValidateSearchQuery(SearchQuery query)
     {
@@ -498,8 +492,6 @@ public class SearchRepository : ISearchRepository
             Time = unixTime,
             Descendants = entity.CommentCount,
             Type = "story"
-            // Note: CreatedAt, HasUrl, CommentCount, and HackerNewsUrl are computed properties
-            // They are automatically calculated from the above properties
         };
     }
 
