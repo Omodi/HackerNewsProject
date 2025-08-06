@@ -1,6 +1,7 @@
 using HackerNewsApi.Core.Interfaces;
 using HackerNewsApi.Core.Models;
 using HackerNewsApi.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -10,22 +11,23 @@ public class HackerNewsService : IHackerNewsService
 {
     private readonly IHackerNewsApiClient _apiClient;
     private readonly ICacheService _cacheService;
+    private readonly SearchDbContext _dbContext;
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<HackerNewsService> _logger;
 
     private static readonly TimeSpan StoryIdsCacheExpiry = TimeSpan.FromMinutes(1);
-    private static readonly TimeSpan StoryCacheExpiry = TimeSpan.FromMinutes(30);
-    private static readonly TimeSpan StoriesPageCacheExpiry = TimeSpan.FromMinutes(10);
-    private static readonly TimeSpan SearchResultsCacheExpiry = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan StoryCacheExpiry = TimeSpan.FromMinutes(90);
 
     public HackerNewsService(
         IHackerNewsApiClient apiClient,
         ICacheService cacheService,
+        SearchDbContext dbContext,
         IServiceProvider serviceProvider,
         ILogger<HackerNewsService> logger)
     {
         _apiClient = apiClient;
         _cacheService = cacheService;
+        _dbContext = dbContext;
         _serviceProvider = serviceProvider;
         _logger = logger;
     }
@@ -55,6 +57,7 @@ public class HackerNewsService : IHackerNewsService
     {
         var cacheKey = $"story_{id}";
 
+        // Check cache first
         var cachedStory = await _cacheService.GetAsync<Story>(cacheKey);
         if (cachedStory != null)
         {
@@ -62,32 +65,37 @@ public class HackerNewsService : IHackerNewsService
             return cachedStory;
         }
 
-        _logger.LogDebug("Cache miss for story {StoryId}, fetching from API", id);
-        var story = await _apiClient.GetStoryAsync(id);
-
-        if (story != null)
+        // Check database second
+        var dbStory = await _dbContext.Stories.FindAsync(id);
+        if (dbStory != null)
         {
+            _logger.LogDebug("Retrieved story {StoryId} from database", id);
+            var story = MapToStory(dbStory);
+            
+            // Cache the story from database for future requests
             await _cacheService.SetAsync(cacheKey, story, StoryCacheExpiry);
-            _logger.LogDebug("Cached story {StoryId}", id);
+            return story;
         }
 
-        return story;
+        // Finally, fetch from API
+        _logger.LogDebug("Story {StoryId} not found in cache or database, fetching from API", id);
+        var apiStory = await _apiClient.GetStoryAsync(id);
+
+        if (apiStory != null)
+        {
+            await _cacheService.SetAsync(cacheKey, apiStory, StoryCacheExpiry);
+            _logger.LogDebug("Cached story {StoryId} from API", id);
+        }
+
+        return apiStory;
     }
 
     public async Task<PagedResult<Story>> GetStoriesAsync(int page = 1, int pageSize = 20)
     {
-        var cacheKey = $"stories_page_{page}_{pageSize}";
-
-        var cachedResult = await _cacheService.GetAsync<PagedResult<Story>>(cacheKey);
-        if (cachedResult != null)
-        {
-            _logger.LogDebug("Retrieved stories page {Page} from cache", page);
-            return cachedResult;
-        }
-        return await GetStoriesFromApi(page, pageSize, cacheKey);
+        return await GetStoriesFromApi(page, pageSize);
     }
 
-    private async Task<PagedResult<Story>> GetStoriesFromApi(int page, int pageSize, string cacheKey)
+    private async Task<PagedResult<Story>> GetStoriesFromApi(int page, int pageSize)
     {
         _logger.LogInformation("Getting stories page {Page} with size {PageSize} from API", page, pageSize);
 
@@ -115,9 +123,24 @@ public class HackerNewsService : IHackerNewsService
             PageSize = pageSize
         };
 
-        await _cacheService.SetAsync(cacheKey, result, StoriesPageCacheExpiry);
-
         return result;
     }
-    
+
+    private static Story MapToStory(StoryEntity entity)
+    {
+        // Convert DateTime back to Unix timestamp for Time property
+        var unixTime = ((DateTimeOffset)entity.CreatedAt).ToUnixTimeSeconds();
+        
+        return new Story
+        {
+            Id = entity.Id,
+            Title = entity.Title,
+            By = entity.Author,
+            Url = entity.Url,
+            Score = entity.Score,
+            Time = unixTime,
+            Descendants = entity.CommentCount,
+            Type = "story"
+        };
+    }
 }

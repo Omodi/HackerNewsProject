@@ -153,6 +153,7 @@ describe('StoryList', () => {
 
     it('should go to next page', () => {
       component.currentPage.set(1);
+      component.hasNextPage.set(true); // Ensure hasNextPage is true for navigation
       
       component.goToNextPage();
 
@@ -174,6 +175,17 @@ describe('StoryList', () => {
       const initialCallCount = mockHackerNewsService.getStories.calls.count();
       
       component.goToPreviousPage();
+
+      expect(component.currentPage()).toBe(1);
+      expect(mockHackerNewsService.getStories.calls.count()).toBe(initialCallCount);
+    });
+
+    it('should not go to next page when hasNextPage is false', () => {
+      component.currentPage.set(1);
+      component.hasNextPage.set(false);
+      const initialCallCount = mockHackerNewsService.getStories.calls.count();
+      
+      component.goToNextPage();
 
       expect(component.currentPage()).toBe(1);
       expect(mockHackerNewsService.getStories.calls.count()).toBe(initialCallCount);

@@ -1,14 +1,16 @@
 using FluentAssertions;
 using HackerNewsApi.Core.Interfaces;
 using HackerNewsApi.Core.Models;
+using HackerNewsApi.Infrastructure.Data;
 using HackerNewsApi.Infrastructure.Services;
+using HackerNewsApi.UnitTests.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Moq;
 
 namespace HackerNewsApi.UnitTests.Services;
 
-public class HackerNewsServiceTests
+public class HackerNewsServiceTests : DatabaseTestBase
 {
     private readonly Mock<IHackerNewsApiClient> _mockApiClient;
     private readonly Mock<ICacheService> _mockCacheService;
@@ -16,13 +18,13 @@ public class HackerNewsServiceTests
     private readonly Mock<ILogger<HackerNewsService>> _mockLogger;
     private readonly HackerNewsService _service;
 
-    public HackerNewsServiceTests()
+    public HackerNewsServiceTests(DatabaseTestFixture databaseFixture) : base(databaseFixture)
     {
         _mockApiClient = new Mock<IHackerNewsApiClient>();
         _mockCacheService = new Mock<ICacheService>();
         _mockServiceProvider = new Mock<IServiceProvider>();
         _mockLogger = new Mock<ILogger<HackerNewsService>>();
-        _service = new HackerNewsService(_mockApiClient.Object, _mockCacheService.Object, _mockServiceProvider.Object, _mockLogger.Object);
+        _service = new HackerNewsService(_mockApiClient.Object, _mockCacheService.Object, Context, _mockServiceProvider.Object, _mockLogger.Object);
     }
 
     [Fact]
@@ -77,8 +79,10 @@ public class HackerNewsServiceTests
     }
 
     [Fact]
-    public async Task GetStoryAsync_WhenCacheMiss_ShouldCallApiAndCache()
+    public async Task GetStoryAsync_WhenCacheAndDbMiss_ShouldCallApiAndCache()
     {
+        // Arrange
+        await CleanDatabaseAsync(); // Ensure clean state
         
         var storyId = 456;
         var apiStory = new Story { Id = storyId, Title = "API Story" };
@@ -87,17 +91,19 @@ public class HackerNewsServiceTests
         _mockApiClient.Setup(x => x.GetStoryAsync(storyId))
                       .ReturnsAsync(apiStory);
 
-        
+        // Act
         var result = await _service.GetStoryAsync(storyId);
 
-        
+        // Assert
         result.Should().BeEquivalentTo(apiStory);
         _mockCacheService.Verify(x => x.SetAsync($"story_{storyId}", apiStory, It.IsAny<TimeSpan>()), Times.Once);
     }
 
     [Fact]
-    public async Task GetStoryAsync_WhenApiReturnsNull_ShouldNotCache()
+    public async Task GetStoryAsync_WhenCacheDbAndApiMiss_ShouldReturnNull()
     {
+        // Arrange
+        await CleanDatabaseAsync(); // Ensure clean state
         
         var storyId = 789;
         _mockCacheService.Setup(x => x.GetAsync<Story>($"story_{storyId}"))
@@ -105,17 +111,60 @@ public class HackerNewsServiceTests
         _mockApiClient.Setup(x => x.GetStoryAsync(storyId))
                       .ReturnsAsync((Story?)null);
 
-        
+        // Act
         var result = await _service.GetStoryAsync(storyId);
 
-        
+        // Assert
         result.Should().BeNull();
         _mockCacheService.Verify(x => x.SetAsync(It.IsAny<string>(), It.IsAny<Story>(), It.IsAny<TimeSpan>()), Times.Never);
     }
 
     [Fact]
-    public async Task GetStoriesAsync_WhenCacheMiss_ShouldReturnPagedResultFromApi()
+    public async Task GetStoryAsync_WhenDbHit_ShouldReturnStoryFromDbAndCache()
     {
+        // Arrange
+        await CleanDatabaseAsync(); // Ensure clean state
+        
+        var storyId = 999;
+        var dbStory = new StoryEntity
+        {
+            Id = storyId,
+            Title = "DB Story",
+            Author = "DB Author",
+            Url = "https://example.com",
+            Score = 100,
+            CreatedAt = DateTime.UtcNow,
+            CommentCount = 5
+        };
+        
+        // Add story to database
+        Context.Stories.Add(dbStory);
+        await Context.SaveChangesAsync();
+        
+        _mockCacheService.Setup(x => x.GetAsync<Story>($"story_{storyId}"))
+                         .ReturnsAsync((Story?)null);
+
+        // Act
+        var result = await _service.GetStoryAsync(storyId);
+
+        // Assert
+        result.Should().NotBeNull();
+        result!.Id.Should().Be(storyId);
+        result.Title.Should().Be("DB Story");
+        result.By.Should().Be("DB Author");
+        
+        // Verify that story was cached after retrieving from DB
+        _mockCacheService.Verify(x => x.SetAsync($"story_{storyId}", It.IsAny<Story>(), It.IsAny<TimeSpan>()), Times.Once);
+        
+        // Verify API was not called
+        _mockApiClient.Verify(x => x.GetStoryAsync(It.IsAny<int>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task GetStoriesAsync_ShouldReturnPagedResultFromApi()
+    {
+        // Arrange
+        await CleanDatabaseAsync(); // Ensure clean state
         
         var storyIds = new[] { 1, 2, 3, 4, 5 };
         var stories = new[]
@@ -124,11 +173,7 @@ public class HackerNewsServiceTests
             new Story { Id = 2, Title = "Story 2" }
         };
 
-        // Mock cache miss for stories page
-        _mockCacheService.Setup(x => x.GetAsync<PagedResult<Story>>("stories_page_1_2"))
-                         .ReturnsAsync((PagedResult<Story>?)null);
-
-        // Mock story IDs and individual stories
+        // Mock story IDs and individual stories (no page caching anymore)
         _mockCacheService.Setup(x => x.GetAsync<int[]>("story_ids"))
                          .ReturnsAsync(storyIds);
         _mockCacheService.Setup(x => x.GetAsync<Story>("story_1"))
@@ -136,47 +181,18 @@ public class HackerNewsServiceTests
         _mockCacheService.Setup(x => x.GetAsync<Story>("story_2"))
                          .ReturnsAsync(stories[1]);
 
-        
+        // Act
         var result = await _service.GetStoriesAsync(1, 2);
 
-        
+        // Assert
         result.Should().NotBeNull();
         result.Items.Should().HaveCount(2);
         result.Items.Should().BeEquivalentTo(stories);
         result.Page.Should().Be(1);
         result.PageSize.Should().Be(2);
 
-        // Verify the page result was cached
-        _mockCacheService.Verify(x => x.SetAsync("stories_page_1_2", It.IsAny<PagedResult<Story>>(), It.IsAny<TimeSpan>()), Times.Once);
-    }
-
-    [Fact]
-    public async Task GetStoriesAsync_WhenCacheHit_ShouldReturnCachedPagedResult()
-    {
-        
-        var cachedResult = new PagedResult<Story>
-        {
-            Items = new[]
-            {
-                new Story { Id = 1, Title = "Cached Story 1" },
-                new Story { Id = 2, Title = "Cached Story 2" }
-            },
-            Page = 1,
-            PageSize = 2,
-        };
-
-        _mockCacheService.Setup(x => x.GetAsync<PagedResult<Story>>("stories_page_1_2"))
-                         .ReturnsAsync(cachedResult);
-
-        
-        var result = await _service.GetStoriesAsync(1, 2);
-
-        
-        result.Should().BeEquivalentTo(cachedResult);
-        
-        // Verify no API calls were made
-        _mockApiClient.Verify(x => x.GetNewStoryIdsAsync(), Times.Never);
-        _mockApiClient.Verify(x => x.GetStoryAsync(It.IsAny<int>()), Times.Never);
+        // Verify no page caching happened (pages are no longer cached)
+        _mockCacheService.Verify(x => x.SetAsync(It.IsAny<string>(), It.Is<PagedResult<Story>>(p => true), It.IsAny<TimeSpan>()), Times.Never);
     }
 
 }

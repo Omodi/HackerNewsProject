@@ -101,7 +101,8 @@ public class DatabaseMaintenanceService : BackgroundService
             StoryCount = storyCount,
             OldestStoryDate = oldestStory?.IndexedAt,
             NewestStoryDate = newestStory?.IndexedAt,
-            ShouldCleanupOldData = oldDataExists
+            ShouldCleanupOldData = oldDataExists,
+            MaxSizeMB = MaxDatabaseSizeBytes
         };
     }
 
@@ -205,6 +206,7 @@ public class DatabaseStats
     public DateTime? OldestStoryDate { get; set; }
     public DateTime? NewestStoryDate { get; set; }
     public bool ShouldCleanupOldData { get; set; }
+    public long MaxSizeMB { get; set; }
     public bool IsNearLimit => UsagePercentage > 80;
     public bool IsOverLimit => UsagePercentage > 100;
 }
